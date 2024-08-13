@@ -3,8 +3,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-
-
 TM1637 tmDisplay(13, 12);
 int trigPin = 23;
 int echoPin = 22;
@@ -29,7 +27,12 @@ void setup() {
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   lastState = digitalRead(buttonPin);
-  Serial.print("START");
+  Serial.println("START");
+
+  if(!oledDisplay.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Initialize OLED
+    Serial.println(F("SSD1306 allocation failed"));
+  }
+
   oledDisplay.clearDisplay();
   oledDisplay.setTextSize(1);
   oledDisplay.setTextColor(SSD1306_WHITE);
@@ -38,33 +41,56 @@ void setup() {
   tmDisplay.init();
   oledDisplay.display();
   oledDisplay.print("Push-up counter");
-
 }
 
 void loop() {
   buttonState = digitalRead(buttonPin);
-  if (buttonState == HIGH && lastState == LOW) {
+  if (buttonState == HIGH && lastState == LOW && (millis() - lastPressTime > 50)) { // Debounce
+    oledDisplay.clearDisplay();
+    oledDisplay.setCursor(0, 0);
     oledDisplay.print("JUST DO IT");
+    oledDisplay.display();
     counter = 0;
     startTime = millis();
     lastState = buttonState; 
     go = true;
-    Serial.print("pressed");
-    delay(10);
+    lastPressTime = millis(); 
+    Serial.println("Button pressed");
   }
-  delay(10);
+
   if (go && millis() - startTime < 60000) {
-    
     checkDistance();
-    delay(10);
-  if (distance <= 15) {
+    if (distance <= 15) {
       counter += 1;
-      Serial.print("counter:");
-      Serial.print(counter);
+      Serial.print("Counter: ");
+      Serial.println(counter);
       digitalWrite(ledPin, HIGH);
       tone(buzzerPin, 256);
-      delay(10);
+      delay(1); 
     }
+
+    updateDisplay(counter);
+    digitalWrite(ledPin, LOW);
+    noTone(buzzerPin);
+  } 
+  lastState = buttonState;
+}
+
+void checkDistance() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(5); 
+  digitalWrite(trigPin, LOW);
+  int duration = pulseIn(echoPin, HIGH);
+  distance = (duration * 0.034 / 2);
+  Serial.print("Distance: ");
+  Serial.println(distance);
+}
+
+void updateDisplay(int counter) {
+  static int lastCounter = -1;
+  if (counter != lastCounter) {
     if (counter < 10) {
       tmDisplay.display(3, counter);
     } else if (counter >= 10 && counter <= 99) {
@@ -75,29 +101,8 @@ void loop() {
       tmDisplay.display(2, (counter / 10) % 10);
       tmDisplay.display(3, counter % 10);
     }
-    delay(10);
-    digitalWrite(ledPin, LOW);
-      noTone(buzzerPin);
-      delay(1000);
-  } 
-  else {
-    delay(1000);
-    Serial.println("nope");
+    lastCounter = counter;
   }
-  
-  delay(10);
-  lastState = buttonState;
-}
-
-void checkDistance() {
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  int duration = pulseIn(echoPin, HIGH);
-  distance = (duration * 0.034 / 2);
-  Serial.println(distance);
 }
 
 void clearDisplay() {
