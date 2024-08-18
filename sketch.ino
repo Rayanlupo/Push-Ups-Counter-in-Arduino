@@ -5,9 +5,9 @@
 
 TM1637 tmDisplay(13, 12);
 int trigPin = 23;
-int echoPin = 22;
+int echoPin = 26;
 int distance;
-int buttonPin = 21;
+int buttonPin = 34;
 int buzzerPin = 25;
 int lastState = LOW;
 int counter = 0;
@@ -15,6 +15,7 @@ int buttonState = LOW;
 unsigned long lastPressTime = 0; 
 int startTime;
 int ledPin = 15;
+int lastDistance;
 bool go;
 Adafruit_SSD1306 oledDisplay(128, 64, &Wire, -1);
 
@@ -45,35 +46,41 @@ void setup() {
 
 void loop() {
   buttonState = digitalRead(buttonPin);
-  if (buttonState == HIGH && lastState == LOW && (millis() - lastPressTime > 50)) { // Debounce
+  if (buttonState == HIGH && lastState == LOW) {
+    Serial.print("pressed");
     oledDisplay.clearDisplay();
     oledDisplay.setCursor(0, 0);
     oledDisplay.print("JUST DO IT");
     oledDisplay.display();
     counter = 0;
     startTime = millis();
-    lastState = buttonState; 
     go = true;
-    lastPressTime = millis(); 
-    Serial.println("Button pressed");
   }
+  
 
   if (go && millis() - startTime < 60000) {
     checkDistance();
-    if (distance <= 15) {
+    if (distance <= 15 && lastDistance >= 25) {
       counter += 1;
       Serial.print("Counter: ");
       Serial.println(counter);
       digitalWrite(ledPin, HIGH);
       tone(buzzerPin, 256);
-      delay(1); 
-    }
+
+    
 
     updateDisplay(counter);
+    delay(500);
     digitalWrite(ledPin, LOW);
     noTone(buzzerPin);
+    }
   } 
   lastState = buttonState;
+  lastDistance = distance;
+  if (buttonState != lastState) {
+    lastState = buttonState;
+  }
+  delay(500);
 }
 
 void checkDistance() {
@@ -86,7 +93,8 @@ void checkDistance() {
   distance = (duration * 0.034 / 2);
   Serial.print("Distance: ");
   Serial.println(distance);
-}
+  delay(100);
+} 
 
 void updateDisplay(int counter) {
   static int lastCounter = -1;
@@ -103,9 +111,12 @@ void updateDisplay(int counter) {
     }
     lastCounter = counter;
   }
+  delay(100);
+  
 }
 
 void clearDisplay() {
   int8_t clearData[4] = { 0x7F, 0x7F, 0x7F, 0x7F }; 
   tmDisplay.display(clearData);
+  delay(100);
 }
